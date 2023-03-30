@@ -198,6 +198,9 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_VM_GPA_BITS:
 		r = kvm_riscv_gstage_gpa_bits();
 		break;
+	case KVM_CAP_IRQCHIP:
+		r = kvm_riscv_aia_available();
+		break;
 	default:
 		r = 0;
 		break;
