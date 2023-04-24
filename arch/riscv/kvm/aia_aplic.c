@@ -249,7 +249,8 @@ static void aplic_update_irq_range(struct kvm *kvm, u32 first, u32 last)
 int kvm_riscv_aia_aplic_inject(struct kvm *kvm, u32 source, bool level)
 {
 	u32 target;
-	bool inject, ie;
+	bool inject = false;
+	bool ie;
 	unsigned long flags;
 	struct aplic_irq *irqd;
 	struct aplic *aplic = kvm->arch.aia.aplic_state;
@@ -267,21 +268,29 @@ int kvm_riscv_aia_aplic_inject(struct kvm *kvm, u32 source, bool level)
 	switch (irqd->sourcecfg & APLIC_SOURCECFG_SM_MASK) {
 	case APLIC_SOURCECFG_SM_EDGE_RISE:
 		if (level && !(irqd->state & APLIC_IRQ_STATE_INPUT) &&
-		    !(irqd->state & APLIC_IRQ_STATE_PENDING))
+		    !(irqd->state & APLIC_IRQ_STATE_PENDING)) {
 			irqd->state |= APLIC_IRQ_STATE_PENDING;
+			inject = true;
+		}
 		break;
 	case APLIC_SOURCECFG_SM_EDGE_FALL:
 		if (!level && (irqd->state & APLIC_IRQ_STATE_INPUT) &&
-		    !(irqd->state & APLIC_IRQ_STATE_PENDING))
+		    !(irqd->state & APLIC_IRQ_STATE_PENDING)) {
 			irqd->state |= APLIC_IRQ_STATE_PENDING;
+			inject = true;
+		}
 		break;
 	case APLIC_SOURCECFG_SM_LEVEL_HIGH:
-		if (level && !(irqd->state & APLIC_IRQ_STATE_PENDING))
+		if (level && !(irqd->state & APLIC_IRQ_STATE_PENDING)) {
 			irqd->state |= APLIC_IRQ_STATE_PENDING;
+			inject = true;
+		}
 		break;
 	case APLIC_SOURCECFG_SM_LEVEL_LOW:
-		if (!level && !(irqd->state & APLIC_IRQ_STATE_PENDING))
+		if (!level && !(irqd->state & APLIC_IRQ_STATE_PENDING)) {
 			irqd->state |= APLIC_IRQ_STATE_PENDING;
+			inject = true;
+		}
 		break;
 	}
 
@@ -290,12 +299,12 @@ int kvm_riscv_aia_aplic_inject(struct kvm *kvm, u32 source, bool level)
 	else
 		irqd->state &= ~APLIC_IRQ_STATE_INPUT;
 
-	inject = false;
 	target = irqd->target;
-	if (ie && (irqd->state & APLIC_IRQ_STATE_ENPEND)) {
+	if (inject && ie && (irqd->state & APLIC_IRQ_STATE_ENPEND)) {
 		irqd->state &= ~APLIC_IRQ_STATE_PENDING;
 		inject = true;
-	}
+	} else
+		inject = false;
 
 skip_unlock:
 	raw_spin_unlock_irqrestore(&irqd->lock, flags);
